@@ -1,0 +1,29 @@
+version: "3.9"
+
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - SECRET_KEY=dev-secret-key-change-in-production
+      # Store the SQLite database in /app/data so it can be persisted via a volume
+      - DATABASE_URL=sqlite:///data/flatifigo.db
+      - DEBUG=false
+      - PORT=5000
+      - CORS_ORIGINS=*
+    volumes:
+      # Mount a named volume to a dedicated data directory (NOT to a file path)
+      - flatifigo_data:/app/data
+      - flatifigo_uploads:/app/uploads
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  flatifigo_data:
+  flatifigo_uploads:

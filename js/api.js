@@ -3,7 +3,7 @@
    ========================================== */
 
 const API = (() => {
-    const BASE = 'http://localhost:5000/api';
+    const BASE = '/api';
     let authToken = localStorage.getItem('flatifigo_token') || null;
 
     function setToken(token) {
@@ -50,7 +50,7 @@ const API = (() => {
             const formData = new FormData();
             files.forEach(f => formData.append('images', f));
             try {
-                const res = await fetch('http://localhost:5000/api/upload', {
+                const res = await fetch('/api/upload', {
                     method: 'POST',
                     headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {},
                     body: formData
@@ -65,7 +65,7 @@ const API = (() => {
             const formData = new FormData();
             formData.append('avatar', file);
             try {
-                const res = await fetch('http://localhost:5000/api/profile/avatar', {
+                const res = await fetch('/api/profile/avatar', {
                     method: 'POST',
                     headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {},
                     body: formData

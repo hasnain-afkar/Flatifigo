@@ -1,6 +1,6 @@
 # 🏠 Flatifigo — Find Your Perfect Flat & Roommate
 
-Flatifigo is a web-based platform designed for **students and jobholders** in Pakistan to find shared flats and compatible roommates. Built with a **Flask + SQLite** backend and a vanilla **HTML / CSS / JavaScript** frontend.
+Flatifigo is a web-based platform designed for **students and jobholders** in Pakistan to find shared flats and compatible roommates. Built with a **Flask + SQLite/PostgreSQL** backend and a vanilla **HTML / CSS / JavaScript** frontend.
 
 ---
 
@@ -19,71 +19,198 @@ Flatifigo is a web-based platform designed for **students and jobholders** in Pa
 
 ## 🛠️ Tech Stack
 
-| Layer    | Technology              |
-| -------- | ----------------------- |
-| Backend  | Python Flask            |
-| Database | SQLite                  |
-| Frontend | HTML, CSS, JavaScript   |
-| CORS     | Flask-CORS              |
+| Layer      | Technology                           |
+| ---------- | ------------------------------------ |
+| Backend    | Python Flask + Gunicorn              |
+| Database   | SQLite (dev) / PostgreSQL (prod)     |
+| Auth       | JWT tokens + bcrypt password hashing |
+| Migrations | Alembic                              |
+| Frontend   | HTML, CSS, JavaScript                |
+| CORS       | Flask-CORS                           |
 
 ---
 
 ## 📋 Prerequisites
 
-Make sure you have the following installed:
-
-- **Python 3.8+** — [Download Python](https://www.python.org/downloads/)
+- **Python 3.12+** — [Download Python](https://www.python.org/downloads/)
 - **pip** — Comes bundled with Python
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Getting Started (Local Development)
 
-### 1. Clone or Download the Project
-
-```bash
-cd i242611_iteration1
-```
-
-### 2. Install Dependencies
+### 1. Clone the project
 
 ```bash
-pip install flask flask-cors
+git clone https://github.com/hasnain-afkar/Flatifigo.git
+cd Flatifigo
 ```
 
-### 3. Run the Server
+### 2. Create a virtual environment
+
+```bash
+python -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+```
+
+### 3. Install dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 4. Configure environment
+
+```bash
+cp .env.example .env
+# Edit .env — at minimum, set a strong SECRET_KEY
+```
+
+### 5. Run the development server
 
 ```bash
 python server.py
 ```
 
-The server will start at **http://localhost:5000**. Open this URL in your browser.
+Open **http://localhost:5000** in your browser.
 
-> [!NOTE]
-> On first run, the database (`flatifigo.db`) is auto-created and seeded with 6 sample listings so the app doesn't feel empty.
+> **Note:** On first run, the database (`flatifigo.db`) is auto-created and seeded with 6 sample listings.
+
+---
+
+## 🔑 Environment Variables
+
+| Variable             | Default                   | Description                                          |
+| -------------------- | ------------------------- | ---------------------------------------------------- |
+| `SECRET_KEY`         | `change-me-in-production` | JWT signing key — **must** be changed in production  |
+| `JWT_EXPIRY_HOURS`   | `24`                      | How long a JWT token is valid                        |
+| `DATABASE_URL`       | `sqlite:///flatifigo.db`  | Database connection string                           |
+| `PORT`               | `5000`                    | Port the server listens on                           |
+| `DEBUG`              | `false`                   | Enable Flask debug mode (dev only)                   |
+| `CORS_ORIGINS`       | `*`                       | Comma-separated allowed origins, or `*`              |
+| `UPLOAD_FOLDER`      | `uploads`                 | Path to uploaded-file storage                        |
+| `MAX_CONTENT_LENGTH` | `16777216`                | Max upload size in bytes (default 16 MB)             |
+
+---
+
+## 🗄️ Database Migrations (Alembic)
+
+```bash
+# Apply all pending migrations
+python -m alembic upgrade head
+
+# Create a new migration after changing the schema
+python -m alembic revision --autogenerate -m "describe_change"
+
+# Roll back one revision
+python -m alembic downgrade -1
+```
+
+---
+
+## 🐳 Docker
+
+### Quick start
+
+```bash
+docker-compose up --build
+```
+
+The app will be available at **http://localhost:5000**.
+
+### Production Docker run
+
+```bash
+docker build -t flatifigo .
+docker run -d \
+  -p 5000:5000 \
+  -e SECRET_KEY=your-secret-key \
+  -e DATABASE_URL=postgresql://user:pass@host:5432/flatifigo \
+  -v flatifigo_uploads:/app/uploads \
+  flatifigo
+```
+
+---
+
+## ☁️ Deployment Guide
+
+### Railway.app
+
+1. Push the repository to GitHub.
+2. Create a new Railway project → **Deploy from GitHub repo**.
+3. Add environment variables in the Railway dashboard:
+   - `SECRET_KEY` (generate with `python -c "import secrets; print(secrets.token_hex(32))"`)
+   - `DATABASE_URL` (Railway auto-provisions PostgreSQL — copy the connection string)
+   - `PORT` is set automatically by Railway.
+4. Railway will automatically detect the `Procfile` and run Gunicorn.
+
+### Render.com
+
+1. Create a new **Web Service** and connect your GitHub repo.
+2. Set **Build Command**: `pip install -r requirements.txt`
+3. Set **Start Command**: `gunicorn wsgi:application`
+4. Add environment variables under **Environment**.
+
+### Heroku
+
+```bash
+heroku create flatifigo-app
+heroku config:set SECRET_KEY=$(python -c "import secrets; print(secrets.token_hex(32))")
+heroku addons:create heroku-postgresql:mini
+git push heroku main
+```
+
+### AWS / DigitalOcean VPS
+
+```bash
+# On your server
+git clone https://github.com/hasnain-afkar/Flatifigo.git
+cd Flatifigo
+cp .env.example .env   # fill in production values
+pip install -r requirements.txt
+gunicorn --bind 0.0.0.0:5000 --workers 4 wsgi:application
+```
+
+Use **nginx** as a reverse proxy and **systemd** or **supervisord** to keep the process running.
+
+### Google Cloud Run / Azure App Service
+
+Build and push the Docker image, then deploy using your platform's container service.
+Set environment variables via the platform console.
 
 ---
 
 ## 📁 Project Structure
 
 ```
-i242611_iteration1/
-├── server.py          # Flask backend (API routes, DB setup, auth)
-├── index.html         # Main HTML entry point (SPA shell)
-├── flatifigo.db       # SQLite database (auto-generated)
+Flatifigo/
+├── server.py            # Flask application (routes, auth, DB)
+├── wsgi.py              # Gunicorn entry point
+├── config.py            # Environment-based configuration
+├── requirements.txt     # Python dependencies
+├── Procfile             # Platform deployment config
+├── Dockerfile           # Container image
+├── docker-compose.yml   # Local Docker development
+├── .dockerignore        # Docker build exclusions
+├── .env.example         # Environment variable template
+├── runtime.txt          # Python version specification
+├── alembic.ini          # Alembic configuration
+├── alembic/             # Database migrations
+│   └── versions/
+│       └── 001_initial_schema.py
+├── index.html           # SPA shell
 ├── css/
-│   └── styles.css     # All styling
+│   └── styles.css
 ├── js/
-│   ├── api.js         # API helper (fetch wrapper with auth headers)
-│   ├── app.js         # SPA router and page rendering
-│   ├── auth.js        # Login / Register logic
-│   ├── profile.js     # Profile management
-│   ├── listings.js    # Listing CRUD (create, read, update, delete)
-│   ├── search.js      # Search & filter logic
-│   ├── roommates.js   # Roommate matching
-│   └── messages.js    # Messaging feature
-├── uploads/           # Uploaded images (avatars, listing photos)
-└── README.md
+│   ├── api.js           # API helper (uses relative URLs)
+│   ├── app.js
+│   ├── auth.js
+│   ├── profile.js
+│   ├── listings.js
+│   ├── search.js
+│   ├── roommates.js
+│   └── messages.js
+└── uploads/             # Uploaded images (auto-created)
 ```
 
 ---
@@ -91,14 +218,16 @@ i242611_iteration1/
 ## 🔌 API Endpoints
 
 ### Auth
-| Method | Endpoint         | Description            |
-| ------ | ---------------- | ---------------------- |
-| POST   | `/api/register`  | Create a new account   |
-| POST   | `/api/login`     | Log in                 |
-| GET    | `/api/session`   | Check current session  |
-| POST   | `/api/logout`    | Log out                |
+
+| Method | Endpoint        | Description           |
+| ------ | --------------- | --------------------- |
+| POST   | `/api/register` | Create a new account  |
+| POST   | `/api/login`    | Log in                |
+| GET    | `/api/session`  | Check current session |
+| POST   | `/api/logout`   | Log out               |
 
 ### Profile
+
 | Method | Endpoint              | Description              |
 | ------ | --------------------- | ------------------------ |
 | GET    | `/api/profile`        | Get current user profile |
@@ -107,47 +236,52 @@ i242611_iteration1/
 | DELETE | `/api/profile/avatar` | Remove avatar            |
 
 ### Listings
-| Method | Endpoint                  | Description              |
-| ------ | ------------------------- | ------------------------ |
-| GET    | `/api/listings`           | Browse/search listings   |
-| POST   | `/api/listings`           | Create a new listing     |
-| GET    | `/api/listings/<id>`      | Get listing details      |
-| PUT    | `/api/listings/<id>`      | Update a listing         |
-| DELETE | `/api/listings/<id>`      | Delete a listing         |
-| GET    | `/api/my-listings`        | Get current user listings|
+
+| Method | Endpoint             | Description               |
+| ------ | -------------------- | ------------------------- |
+| GET    | `/api/listings`      | Browse/search listings    |
+| POST   | `/api/listings`      | Create a new listing      |
+| GET    | `/api/listings/<id>` | Get listing details       |
+| PUT    | `/api/listings/<id>` | Update a listing          |
+| DELETE | `/api/listings/<id>` | Delete a listing          |
+| GET    | `/api/my-listings`   | Get current user listings |
 
 ### Other
-| Method | Endpoint         | Description              |
-| ------ | ---------------- | ------------------------ |
-| POST   | `/api/upload`    | Upload listing images    |
-| GET    | `/api/roommates` | Get all roommate profiles|
+
+| Method | Endpoint         | Description               |
+| ------ | ---------------- | ------------------------- |
+| POST   | `/api/upload`    | Upload listing images     |
+| GET    | `/api/roommates` | Get all roommate profiles |
+| GET    | `/health`        | Health check              |
 
 ---
 
 ## 👥 User Roles
 
-| Role             | Permissions                                          |
-| ---------------- | ---------------------------------------------------- |
-| **Student**      | Browse flats, set profile, search roommates          |
-| **Jobholder**    | Browse flats, set profile, search roommates          |
-| **Property Owner** | All of the above + Post, edit, and delete listings |
+| Role                 | Permissions                                        |
+| -------------------- | -------------------------------------------------- |
+| **Student**          | Browse flats, set profile, search roommates        |
+| **Jobholder**        | Browse flats, set profile, search roommates        |
+| **Property Owner**   | All of the above + Post, edit, and delete listings |
 
 ---
 
-## ⚙️ Configuration
+## 🔒 Security Notes
 
-| Setting          | Default      | Location        |
-| ---------------- | ------------ | --------------- |
-| Server Port      | `5000`       | `server.py`     |
-| Max Upload Size  | `16 MB`      | `server.py`     |
-| Database Path    | `flatifigo.db` | `server.py`   |
-| Upload Directory | `uploads/`   | `server.py`     |
-| Allowed Images   | png, jpg, jpeg, gif, webp | `server.py` |
+- Passwords are hashed with **bcrypt** (replaces the original SHA-256).
+- Authentication uses **JWT tokens** stored in `localStorage`. Tokens expire after `JWT_EXPIRY_HOURS` (default 24 h).
+- Always set a strong, unique `SECRET_KEY` in production.
+- Set `DEBUG=false` in production.
+- Restrict `CORS_ORIGINS` to your frontend domain in production.
 
 ---
 
-## 📝 Notes
+## 🛠️ Troubleshooting
 
-- The app uses **in-memory sessions**, so all users will be logged out when the server restarts.
-- Passwords are hashed using **SHA-256** before being stored in the database.
-- The frontend is a **Single Page Application (SPA)** — all routing is handled client-side via hash-based navigation.
+| Problem                              | Solution                                                        |
+| ------------------------------------ | --------------------------------------------------------------- |
+| `ModuleNotFoundError`                | Run `pip install -r requirements.txt`                           |
+| Port already in use                  | Set `PORT=5001` in `.env`                                       |
+| Database locked                      | Stop other processes accessing `flatifigo.db`                   |
+| 401 Unauthorized after server restart | Expected — JWT tokens survive restarts (stateless auth)        |
+| CORS errors                          | Set `CORS_ORIGINS` to your frontend URL                         |
